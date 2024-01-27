@@ -1,0 +1,24 @@
+cell:
+  answer: string
+  content: string
+  id: int
+  state: puzzle state
+  words: word[]
+  x: int
+  y: int
+
+clue:
+  id: int
+  text: string
+
+puzzle state: correct | incomplete | incorrect
+
+word:
+  answer: string
+  cells: cell[]
+  clue: clue
+  direction: word direction
+  id: int
+  state: puzzle state
+
+word direction: horizontal | vertical

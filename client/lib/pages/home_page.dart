@@ -30,7 +30,11 @@ class HomePage extends StatelessWidget {
               return const Text('Data is null.');
             }
 
-            return PuzzleView(puzzle: data);
+            return PuzzleView(
+              cellSize: 40,
+              cellSpacing: 5,
+              puzzle: data,
+            );
           }
 
           return const LoadingIndicator();
