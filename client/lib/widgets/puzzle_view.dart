@@ -18,6 +18,8 @@ class PuzzleView extends StatefulWidget {
 }
 
 class _PuzzleViewState extends State<PuzzleView> {
+  final _controller = PuzzleController();
+
   @override
   Widget build(BuildContext context) {
     final cells = <Cell>[];
@@ -34,6 +36,7 @@ class _PuzzleViewState extends State<PuzzleView> {
         final cell = Cell(
           answer: answer,
           content: '',
+          controller: CellTileController(),
           id: index,
           state: PuzzleState.incomplete,
           words: [],
@@ -56,6 +59,10 @@ class _PuzzleViewState extends State<PuzzleView> {
         }
 
         wordMap[wordIndex]!.cells.add(cell);
+
+        if (x == widget.puzzle.size.cols - 1) {
+          wordIndex++;
+        }
       } else {
         wordIndex++;
       }
@@ -65,6 +72,10 @@ class _PuzzleViewState extends State<PuzzleView> {
       if (word.direction == WordDirection.horizontal) {
         word.answer = widget.puzzle.answers.across[index];
         word.clue = Clue(id: index, text: widget.puzzle.clues.across[index]);
+      }
+
+      for (var cell in word.cells) {
+        cell.words.add(word);
       }
     }
 
@@ -86,7 +97,7 @@ class _PuzzleViewState extends State<PuzzleView> {
               top: cell.y * (widget.cellSize + widget.cellSpacing),
               height: widget.cellSize,
               width: widget.cellSize,
-              child: CellTile(cell: cell),
+              child: CellTile(cell: cell, puzzleController: _controller),
             );
           }).toList(),
         ),
@@ -95,23 +106,118 @@ class _PuzzleViewState extends State<PuzzleView> {
   }
 }
 
+class PuzzleController extends ChangeNotifier {
+  Cell? _selectedCell;
+  Word? _highlightedWord;
+
+  void setSelection({
+    required Cell selectedCell,
+    required Word highlightedWord,
+  }) {
+    if (_highlightedWord != null) {
+      for (var cell in _highlightedWord!.cells) {
+        cell.controller.setState(CellTileState.none);
+      }
+    }
+
+    _selectedCell = selectedCell;
+    _highlightedWord = highlightedWord;
+
+    notifyListeners();
+  }
+}
+
+class CellTileController extends ChangeNotifier {
+  var _state = CellTileState.none;
+
+  CellTileState get state {
+    return _state;
+  }
+
+  void setState(CellTileState value) {
+    _state = value;
+
+    notifyListeners();
+  }
+}
+
+enum CellTileState {
+  highlighted,
+  selected,
+  none,
+}
+
 // TODO: move
 class CellTile extends StatelessWidget {
   const CellTile({
     super.key,
     required this.cell,
+    required this.puzzleController,
   });
 
   final Cell cell;
+  final PuzzleController puzzleController;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      borderRadius: const BorderRadius.all(Radius.circular(10)),
-      color: Colors.black.withOpacity(.05),
-      child: Center(
-        child: Text(cell.answer, textAlign: TextAlign.center),
-      ),
+    return ListenableBuilder(
+      listenable: cell.controller,
+      builder: (context, child) {
+        ShapeBorder shapeBorder;
+
+        switch (cell.controller.state) {
+          case CellTileState.highlighted:
+            shapeBorder = RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              side: BorderSide(
+                color: Theme.of(context).primaryColor.withOpacity(.5),
+                width: 2,
+              ),
+            );
+
+            break;
+          case CellTileState.none:
+            shapeBorder = const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+            );
+
+            break;
+          case CellTileState.selected:
+            shapeBorder = RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              side: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+            );
+
+            break;
+        }
+
+        return Material(
+          clipBehavior: Clip.antiAlias,
+          color: Colors.black.withOpacity(.05),
+          shape: shapeBorder,
+          child: InkWell(
+            onTap: () {
+              final word = cell.words.first;
+
+              puzzleController.setSelection(
+                highlightedWord: word,
+                selectedCell: cell,
+              );
+
+              for (var wordCell in word.cells) {
+                if (wordCell == cell) {
+                  wordCell.controller.setState(CellTileState.selected);
+                } else {
+                  wordCell.controller.setState(CellTileState.highlighted);
+                }
+              }
+            },
+            child: Center(
+              child: Text(cell.answer, textAlign: TextAlign.center),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -121,6 +227,7 @@ class Cell {
   Cell({
     required this.answer,
     required this.content,
+    required this.controller,
     required this.id,
     required this.state,
     required this.words,
@@ -130,6 +237,7 @@ class Cell {
 
   String answer;
   String content;
+  CellTileController controller;
   int id;
   PuzzleState state;
   List<Word> words;
